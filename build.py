@@ -35,6 +35,7 @@ CFLAGS_OLD = os.environ.get("CFLAGS", "")
 CXXFLAGS_OLD = os.environ.get("CFLAGS", "")
 LDFLAGS_OLD = os.environ.get("CFLAGS", "")
 
+
 def get_app_name():
     """Get app name from pyproject.toml"""
     if os.path.exists("pyproject.toml"):
@@ -405,11 +406,11 @@ def parser():
 
 if __name__ == "__main__":
     args = parser()
-    clang = not (args.noclang or args.mingw)
+    clang = not args.noclang and not args.mingw and shutil.which("clang")
 
     if args.print_cmd:
         if args.nuitka:
-            build_with_nuitka(args.onedir, args.clang, args.mingw, print_cmd=True)
+            build_with_nuitka(args.onedir, clang, args.mingw, print_cmd=True)
         else:
             build_with_pyinstaller(args.onedir, print_cmd=True)
         sys.exit(0)
@@ -437,7 +438,7 @@ if __name__ == "__main__":
         build_third_party_licenses(exclude)
 
     if args.nuitka:
-        build_with_nuitka(args.onedir, args.clang, args.mingw)
+        build_with_nuitka(args.onedir, clang, args.mingw)
     else:
         build_with_pyinstaller(args.onedir)
 
