@@ -31,7 +31,7 @@ def load_json(file, dir_path, default=None):
     if not os.path.exists(path):
         return default
     try:
-        with open(path, "r") as f:
+        with open(path, "r", encoding="utf-8") as f:
             data = json_.load(f)
             if default:
                 for key, value in default.items():
@@ -46,7 +46,7 @@ def save_json(data, file, dir_path):
     if not os.path.exists(dir_path):
         os.makedirs(os.path.expanduser(dir_path), exist_ok=True)
     path = os.path.expanduser(os.path.join(dir_path, file))
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         json_.dump(data, f, indent=2)
 
 
@@ -64,13 +64,13 @@ def get_user_processes_diff_linux():
 
         # check cache
         if pid in proc_cache:
-           proc_cache[pid][1] = True
-           continue
+            proc_cache[pid][1] = True
+            continue
         proc_cache[pid] = [None, True]
 
         # read and check uid
         try:
-            with open(f"/proc/{pid}/status", "r") as f:
+            with open(f"/proc/{pid}/status", "r", encoding="utf-8") as f:
                 uid = None
                 for line in f:
                     if line.startswith("Uid:"):
@@ -136,8 +136,8 @@ def get_user_processes_diff_windows():
 
         # check cache
         if pid in proc_cache:
-           proc_cache[pid][1] = True
-           continue
+            proc_cache[pid][1] = True
+            continue
         proc_cache[pid] = [None, True]
 
         # skip system processes
@@ -198,8 +198,8 @@ def get_user_processes_diff_darwin():
 
         # check cache
         if pid in proc_cache:
-           proc_cache[pid][1] = True
-           continue
+            proc_cache[pid][1] = True
+            continue
         proc_cache[pid] = [None, True]
 
         # check uid

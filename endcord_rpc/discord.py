@@ -17,8 +17,9 @@ except ImportError:
 import json as json_
 
 import socks
-from endcord_rpc import user_settings_pb2
 from google.protobuf.json_format import MessageToDict
+
+from endcord_rpc import user_settings_pb2
 
 DISCORD_HOST = "discord.com"
 logger = logging.getLogger(__name__)

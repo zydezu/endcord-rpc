@@ -69,9 +69,9 @@ def main():
     # load config
     config_file_path = os.path.join(config_path, "config.json")
     if not os.path.exists(config_file_path):
-        with open(config_file_path, "w") as file:
+        with open(config_file_path, "w", encoding="utf-8") as file:
             json.dump(DEFAULT_CONFIG, file, indent=2)
-    with open(config_file_path, "r") as f:
+    with open(config_file_path, "r", encoding="utf-8") as f:
         config = json.load(f)
     host = config.get("custom_host")
     token = config.get("token")
@@ -168,7 +168,7 @@ def main():
         logger.info("Token has been refreshed")
         print("Token hsa been refreshed")
         config["token"] = new_token
-        with open(config_file_path, "w") as file:
+        with open(config_file_path, "w", encoding="utf-8") as file:
             json.dump(config, file, indent=2)
     del new_token
 

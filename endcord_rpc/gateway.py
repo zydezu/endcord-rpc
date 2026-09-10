@@ -9,7 +9,6 @@ import struct
 import threading
 import time
 import traceback
-import urllib
 import urllib.parse
 import zlib
 
@@ -23,10 +22,12 @@ except ImportError:
 
 import socks
 import websocket
-from endcord_rpc import user_settings_pb2
 from google.protobuf.json_format import MessageToDict
 
+from endcord_rpc import user_settings_pb2
+
 DISCORD_HOST = "discord.com"
+DISCORD_HOST_GATEWY = "wss://gateway.discord.gg"
 LOCAL_MEMBER_COUNT = 50   # members per guild, CPU-RAM intensive
 ZLIB_SUFFIX = b"\x00\x00\xff\xff"
 VOICE_FLAGS = 3   # CLIPS_ENABLED and ALLOW_VOICE_RECORDING
@@ -161,45 +162,56 @@ class Gateway():
 
     def connect(self):
         """Create initial connection to Discord gateway"""
-        # get proxy
-        if self.proxy.scheme:
-            if self.proxy.scheme.lower() == "http":
-                connection = http.client.HTTPSConnection(self.proxy.hostname, self.proxy.port)
-                connection.set_tunnel(self.host, port=443)
-            elif "socks" in self.proxy.scheme.lower():
-                proxy_sock = socks.socksocket()
-                proxy_sock.set_proxy(socks.SOCKS5, self.proxy.hostname, self.proxy.port)
-                proxy_sock.connect((self.host, 443))
-                ssl_context = ssl.create_default_context()
-                ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
-                proxy_sock = ssl_context.wrap_socket(proxy_sock, server_hostname=self.host)
-                proxy_sock.do_handshake()   # seems like its not needed
-                connection = http.client.HTTPSConnection(self.host, 443)
-                connection.sock = proxy_sock
+        if self.host == DISCORD_HOST:
+            self.gateway_url = DISCORD_HOST_GATEWY
+        else:
+            # get proxy
+            if self.proxy.scheme:
+                if self.proxy.scheme.lower() == "http":
+                    connection = http.client.HTTPSConnection(self.proxy.hostname, self.proxy.port)
+                    connection.set_tunnel(self.host, port=443)
+                elif "socks" in self.proxy.scheme.lower():
+                    proxy_sock = socks.socksocket()
+                    proxy_sock.set_proxy(socks.SOCKS5, self.proxy.hostname, self.proxy.port)
+                    proxy_sock.connect((self.host, 443))
+                    ssl_context = ssl.create_default_context()
+                    ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
+                    proxy_sock = ssl_context.wrap_socket(proxy_sock, server_hostname=self.host)
+                    proxy_sock.do_handshake()   # seems like its not needed
+                    connection = http.client.HTTPSConnection(self.host, 443)
+                    connection.sock = proxy_sock
+                else:
+                    logger.warning("Invalid proxy, continuing without proxy")
+                    print("Invalid proxy, continuing without proxy")
+                    connection = http.client.HTTPSConnection(self.host, 443)
             else:
-                logger.warning("Invalid proxy, continuing without proxy")
-                print("Invalid proxy, continuing without proxy")
                 connection = http.client.HTTPSConnection(self.host, 443)
-        else:
-            connection = http.client.HTTPSConnection(self.host, 443)
 
-        # get gateway url
-        try:
-            # subscribe works differently in v10
-            connection.request("GET", "/api/v9/gateway")
-        except (socket.gaierror, TimeoutError):
-            connection.close()
-            logger.warning("No internet connection. Exiting...")
-            raise SystemExit("No internet connection. Exiting...")
-        response = connection.getresponse()
-        if response.status == 200:
-            data = response.read()
-            connection.close()
-            self.gateway_url = json.loads(data)["url"]
-        else:
-            connection.close()
-            logger.error(f"Failed to get gateway url. Response code: {response.status}. Exiting...")
-            raise SystemExit(f"Failed to get gateway url. Response code: {response.status}. Exiting...")
+            # get gateway url
+            try:
+                header = {
+                    "Accept": "*/*",
+                    "Content-Type": "application/json",
+                    "Priority": "u=1",
+                    "Sec-Fetch-Dest": "empty",
+                    "Sec-Fetch-Mode": "cors",
+                    "Sec-Fetch-Site": "cross-site",
+                    "User-Agent": self.user_agent,
+                }
+                connection.request("GET", "/api/v9/gateway", headers=header)
+            except (socket.gaierror, TimeoutError):
+                connection.close()
+                logger.warning("No internet connection. Exiting...")
+                raise SystemExit("No internet connection. Exiting...")
+            response = connection.getresponse()
+            if response.status == 200:
+                data = response.read()
+                connection.close()
+                self.gateway_url = json.loads(data)["url"]
+            else:
+                connection.close()
+                logger.error(f"Failed to get gateway url. Response code: {response.status}. Exiting...")
+                raise SystemExit(f"Failed to get gateway url. Response code: {response.status}. Exiting...")
 
         self.connect_ws()
         self.state = 1
