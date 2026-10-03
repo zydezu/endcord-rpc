@@ -33,8 +33,8 @@ ZLIB_SUFFIX = b"\x00\x00\xff\xff"
 VOICE_FLAGS = 3   # CLIPS_ENABLED and ALLOW_VOICE_RECORDING
 DEFAULT_CAPABILITIES = 30717
 DEFAULT_INTENTS = 50364033
-QOS_HEARTBEAT = True
-QOS_PAYLOAD = {"ver": 26, "active": True, "reason": "foregrounded"}
+QOS_HEARTBEAT = False
+QOS_PAYLOAD = {"ver": 26, "active": False, "reason": "backgrounded"}
 inflator = zlib.decompressobj()
 logger = logging.getLogger(__name__)
 status_unpacker = struct.Struct("!H")
@@ -402,7 +402,10 @@ class Gateway():
                     self.status_changed = True
 
                 elif optext == "USER_SETTINGS_PROTO_UPDATE":
-                    if data["partial"] or data["settings"]["type"] != 1:
+                    if data.get("partial") or data.get("settings", {}).get("type") != 1:
+                        continue
+                    if "user_settings_proto" not in data:
+                        logger.warning("USER_SETTINGS_PROTO_UPDATE without user_settings_proto, ignoring")
                         continue
                     decoded = user_settings_pb2.UserSettings.FromString(base64.b64decode(data["user_settings_proto"]))
                     self.user_settings_proto = MessageToDict(decoded)
@@ -447,7 +450,7 @@ class Gateway():
         heartbeat_sent_time = int(time.time())
         time_spent_event_time = int(time.time()) - 1990   # send it 10s after start, then every 30min
         while self.run and not self.wait and self.heartbeat_running:
-            send_time_spent_event = not self.legacy and int(time.time()) - time_spent_event_time >= 1800
+            send_time_spent_event = False
             if send_time_spent_event:
                 self.send({
                     "op": 41,
@@ -499,7 +502,7 @@ class Gateway():
                     "activities": [],
                     "status": "online",
                     "since": None,
-                    "afk": False,
+                    "afk": True,
                 },
             },
         }
@@ -594,8 +597,9 @@ class Gateway():
         return self.state
 
 
-    def update_presence(self, status, custom_status=None, custom_status_emoji=None, activities=None, afk=False):
-        """Update client status. Statuses: 'online', 'idle', 'dnd', 'invisible', 'offline'"""
+    def update_presence(self, status, custom_status=None, custom_status_emoji=None, activities=None, afk=True):
+        """Update client status. Statuses: 'online', 'idle', 'dnd', 'invisible', 'offline'
+        afk defaults to True so every presence update says the user is away."""
         if self.legacy:
             return   # spacebar_fix - gateway returns error if this event is sent
 
