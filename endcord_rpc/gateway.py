@@ -599,7 +599,8 @@ class Gateway():
 
     def update_presence(self, status, custom_status=None, custom_status_emoji=None, activities=None, afk=True):
         """Update client status. Statuses: 'online', 'idle', 'dnd', 'invisible', 'offline'
-        afk defaults to True so every presence update says the user is away."""
+        afk defaults to True (LOCAL PATCH 2026-10-03) so every presence update says the user is
+        away - otherwise Discord treats the session as active and stops mobile push notifications."""
         if self.legacy:
             return   # spacebar_fix - gateway returns error if this event is sent
 

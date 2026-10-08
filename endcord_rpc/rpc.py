@@ -209,7 +209,24 @@ class RPC:
                         break
                     logger.debug(f"Received: {json.dumps(data, indent=2)}")
 
-                    if data["cmd"] == "SET_ACTIVITY" and "activity" in data["args"]:
+                    if data["cmd"] == "SET_ACTIVITY":
+                        # LOCAL PATCH 2026-10-08: handle explicit clears from the client.
+                        # discord-rpc signals a clear as SET_ACTIVITY with either a null
+                        # activity or no "activity" key at all - this fork's
+                        # serializeEmptyPresence omits the key entirely. Upstream gated the
+                        # whole handler on `"activity" in data["args"]` and then did nothing,
+                        # so a clear was silently dropped and the previous activity stayed on
+                        # the gateway indefinitely: the only other removal path is
+                        # client_thread's socket teardown, which never fires while the client
+                        # stays connected. Drop ours and flag the change so main.py pushes the
+                        # updated list and Discord actually clears the presence.
+                        if not data["args"].get("activity"):
+                            for num, old_activity in enumerate(self.activities):
+                                if old_activity["application_id"] == app_id:
+                                    self.activities.pop(num)
+                                    self.changed = True
+                                    break
+                            continue
                         # prevent sending presences too often
                         delay = GATEWAY_RATE_LIMIT_SAME if data["args"]["activity"] == prev_activity else GATEWAY_RATE_LIMIT
                         if time.time() - sent_time < delay:
